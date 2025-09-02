@@ -26,8 +26,8 @@ MAX6675 Thermocouple(ThermoSCK, ThermoCS, ThermoSO);
 
 int MenuIndex = 0;
 //both in degrees rotation of servo.
-int EjectNegative = 90; //Ejector servo position to pull back before push.
-int EjectPositive = -45; //Ejector servo position to push part out
+int EjectNegative = -45; //Ejector servo position to pull back before push.
+int EjectPositive = 90; //Ejector servo position to push part out
 unsigned int InjectTime = 0;
 unsigned int ViseHoldTime = 0;
 float ShotSize = 0.0;
@@ -133,17 +133,22 @@ void loop() {
     // Button is pressed while on MAIN_MENU
     if (MenuIndex == 7) { // If "START" is selected
       // Switch to START_JOB state and initialize the sequence
-      if (millis() - LastTempRead > 1000) { // Read every second
-        CurrentTemp = Thermocouple.getCelsius();
-        Serial.print("Current Temp: ");
-        Serial.println(CurrentTemp);
-        LastTempRead = millis();
-      }
 
       while (CurrentTemp < WarmingTemp) { // Minimum temperature check
+        // Check if the reset button is pressed
+        if (digitalRead(ResetButtonPin) == LOW) {
+          // Perform a software reset
+          wdt_enable(WDTO_15MS); // Enable the watchdog timer with a 15ms timeout
+          while (1); // Wait for the watchdog timer to reset the Arduino
+        }
         LCD.clear();
-        LCD.setCursor((20 - 24) / 2, 1); // Centered horizontally
+        LCD.setCursor(1, 1);
         LCD.print("Warming Up...");
+        CurrentTemp = Thermocouple.getCelsius();
+        LCD.setCursor(1, 2);
+        LCD.print("Current Temp: ");
+        LCD.print(CurrentTemp);
+        LCD.print("*C");
         delay(3000); // Display error for 3 seconds
       }
       menuState = START_JOB;
