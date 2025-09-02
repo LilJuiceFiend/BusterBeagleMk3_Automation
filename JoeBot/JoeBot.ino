@@ -146,9 +146,9 @@ void loop() {
         LCD.print("Warming Up...");
         CurrentTemp = Thermocouple.getCelsius();
         LCD.setCursor(0, 2);
-        LCD.print("Current Temp: ");
+        LCD.print("Current Temp:");
         LCD.print(CurrentTemp);
-        LCD.print("*C");
+        LCD.print("C");
         delay(3000); // Display error for 3 seconds
       }
       menuState = START_JOB;
