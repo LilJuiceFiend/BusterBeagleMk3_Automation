@@ -145,7 +145,7 @@ void loop() {
         LCD.setCursor(1, 1);
         LCD.print("Warming Up...");
         CurrentTemp = Thermocouple.getCelsius();
-        LCD.setCursor(1, 2);
+        LCD.setCursor(0, 2);
         LCD.print("Current Temp:");
         LCD.print(CurrentTemp);
         LCD.print("C");
