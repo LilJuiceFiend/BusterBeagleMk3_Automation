@@ -40,6 +40,7 @@ int ServoPosition = 0; // 0 degrees
 unsigned long LastTempRead = 0;
 float CurrentTemp = 0.0;
 float WarmingTemp = 170.0; // Minimum temperature to start the job
+float ErrorTemp = 150.0; // Temp at which the job will be stopped.
 
 int DelayFor0 = 500;   // Delay for 0 degrees in milliseconds
 int DelayFor180 = 150;  // Delay for 180 degrees in milliseconds
@@ -117,7 +118,7 @@ void loop() {
 
     if (newClk == LOW && dtValue == HIGH) {
       if (menuState == MAIN_MENU) {
-        MenuIndex = min(MenuIndex + 1, 7); // Adjusted for the new line
+        MenuIndex = min(MenuIndex + 1, 8); // 0 index for 9 items
         updateLCD();
       }
     } else if (newClk == LOW && dtValue == LOW) {
@@ -131,7 +132,7 @@ void loop() {
   bool buttonState = digitalRead(EncoderButtonPin);
   if (buttonState == LOW && menuState == MAIN_MENU) {
     // Button is pressed while on MAIN_MENU
-    if (MenuIndex == 7) { // If "START" is selected
+    if (MenuIndex == 8) { // If "START" is selected
       // Switch to START_JOB state and initialize the sequence
 
       while (CurrentTemp < WarmingTemp) { // Minimum temperature check
@@ -144,7 +145,7 @@ void loop() {
         LCD.clear();
         LCD.setCursor(1, 1);
         LCD.print("Warming Up...");
-        CurrentTemp = Thermocouple.getCelsius();
+        CurrentTemp = Thermocouple.readCelsius();
         LCD.setCursor(0, 2);
         LCD.print("Current Temp:");
         LCD.print(CurrentTemp);
@@ -173,53 +174,65 @@ void loop() {
 
   // Check if it's time to turn on PIN 12 10 seconds after PIN 13 turns on
   if (menuState == START_JOB && isSequenceActive && sequenceStep == 0 && millis() - startTime >= 10000) {
-    digitalWrite(InjectPin, HIGH); // Turn on Pin 12
-    LCD.clear();
-    LCD.setCursor((20 - 10) / 2, 1); // Centered horizontally
-    LCD.print("Injecting");
-    sequenceStep++;
+    CurrentTemp = Thermocouple.readCelsius();
+    if (CurrentTemp > ErrorTemp)
+    {
+      digitalWrite(InjectPin, HIGH); // Turn on Pin 12
+      LCD.clear();
+      LCD.setCursor((20 - 10) / 2, 1); // Centered horizontally
+      LCD.print("Injecting");
+      sequenceStep++;
+    }
   }
 
   // Check if it's time to turn off PIN 12 after InjectTime
   if (menuState == START_JOB && isSequenceActive && sequenceStep == 1 && millis() - startTime >= (InjectTime * 1000 + 10000)) {
-    digitalWrite(InjectPin, LOW);
-    sequenceStep++;
+    CurrentTemp = Thermocouple.readCelsius();
+    if (CurrentTemp > ErrorTemp)
+    {
+      digitalWrite(InjectPin, LOW);
+      sequenceStep++;
+    }
   }
 
   // Check if it's time to turn on PIN 8 for ShotSize seconds
   if (menuState == START_JOB && isSequenceActive && sequenceStep == 2) {
-    digitalWrite(HopperServoPin, HIGH); // Turn on Pin 8
+    CurrentTemp = Thermocouple.readCelsius();
+    if (CurrentTemp > ErrorTemp)
+    {
+      digitalWrite(HopperServoPin, HIGH); // Turn on Pin 8
 
-    // Calculate the time when the shot should end
-    ShotEndTime = millis() + (ShotSize * 1000);
+      // Calculate the time when the shot should end
+      ShotEndTime = millis() + (ShotSize * 1000);
 
-    LCD.clear();
-    LCD.setCursor((20 - 13) / 2, 1); // Centered horizontally
-    LCD.print("Refill Chamber");
-    sequenceStep++;
+      LCD.clear();
+      LCD.setCursor((20 - 13) / 2, 1); // Centered horizontally
+      LCD.print("Refill Chamber");
+      sequenceStep++;
 
-    while (millis() < ShotEndTime) {
-        HopperServo.write(ServoPosition); // Set servo to the current position
+      while (millis() < ShotEndTime) {
+          HopperServo.write(ServoPosition); // Set servo to the current position
 
-        // Toggle between 0 and 180 degrees and use the corresponding delay
-        if (ServoPosition == 0) {
-          delay(DelayFor0);
-        } else {
-          delay(DelayFor180);
-        }
+          // Toggle between 0 and 180 degrees and use the corresponding delay
+          if (ServoPosition == 0) {
+            delay(DelayFor0);
+          } else {
+            delay(DelayFor180);
+          }
 
-        ServoPosition = (ServoPosition == 0) ? 180 : 0;
+          ServoPosition = (ServoPosition == 0) ? 180 : 0;
+      }
+
+      // Stop the servo
+      HopperServo.write(90); // Set the servo to the neutral position
+
+      digitalWrite(HopperServoPin, LOW); // Turn off Pin 8
+
+      LCD.clear();
+      LCD.setCursor((20 - 13) / 2, 1); // Centered horizontally
+      LCD.print("Hold Vise");
+      sequenceStep++;
     }
-
-    // Stop the servo
-    HopperServo.write(90); // Set the servo to the neutral position
-
-    digitalWrite(HopperServoPin, LOW); // Turn off Pin 8
-
-    LCD.clear();
-    LCD.setCursor((20 - 13) / 2, 1); // Centered horizontally
-    LCD.print("Hold Vise");
-    sequenceStep++;
   }
 
   // Check if it's time to turn off PIN 8 Hopper and end the sequence
@@ -346,6 +359,13 @@ void adjustValue(int direction) {
         WarmingTemp += direction * 5; // Adjust by -5 degrees
       }
       break;
+    case 7: // Error temp
+      if (direction > 0 && ErrorTemp < 500) {
+        ErrorTemp += direction * 5; // Adjust by 5 degrees
+      } else if (direction < 0 && ErrorTemp > 0) {
+        ErrorTemp += direction * 5; // Adjust by -5 degrees
+      }
+      break;
   }
   updateLCD();
 }
@@ -442,6 +462,13 @@ void updateLCD() {
       }
 
       case 7: {
+        LCD.print("Error Temp: ");
+        LCD.print(ErrorTemp);
+        LCD.print("*C");
+        break;
+      }
+
+      case 8: {
         LCD.print("START");
         break;
       }
