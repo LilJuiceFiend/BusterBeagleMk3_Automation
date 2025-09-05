@@ -4,15 +4,15 @@
 #include <LiquidCrystal_I2C.h>
 #include <avr/wdt.h> //watchdog timer
 #include <Servo.h>
-#include <MAX6675.h>
+#include <max6675.h>
 
 //Constants do not change, also where stuff is plugged in to.
 const int ClockPin = 2;
 const int DTPin = 3;
 const int EncoderButtonPin = 4;
-const int ThermoSO = 5;
-const int ThermoCS = 6;
-const int ThermoSCK = 7;
+const int ThermoSO = 5;  //thermo data out
+const int ThermoCS = 6;     //thermo  chip select
+const int ThermoSCK = 7;    //thermo clock pin
 const int HopperServoPin = 8;  //hopper servo
 const int ResetButtonPin = 9; // Define the reset button pin
 const int EjectServoPin = 11; //Control for the part ejection
